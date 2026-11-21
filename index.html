@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Medya Sahnesi — Tema, Bilgi Yarışması ve Tıklama Oyunu</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Sınıf tabanlı koyu tema desteğini aktif et
+        tailwind.config = {
+            darkMode: "class"
+        };
+    </script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- TensorFlow.js ve Teachable Machine Image Kütüphaneleri -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+    <style>
+        /* Temel tipografi ve geçiş ayarları */
+        body {
+            font-family: "Inter", sans-serif;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        /* Tıklama oyunu hedef butonları için yumuşak etkileşim */
+        .click-target-btn {
+            touch-action: manipulation;
+            transition: transform 0.08s ease, box-shadow 0.15s ease, background-color 0.15s ease, width 0.12s ease, height 0.12s ease;
+        }
+
+        .click-target-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased">
+    <!-- Ana Sayfa Kapsayıcısı -->
+    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-8 space-y-6">
+
+        <!-- Üst Başlık ve Tema Değiştirici Buton Modülü -->
+        <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                    Medya &amp; Etkileşim Sayfası
+                </h1>
+                <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    Görsel ve video alanlarını koruyan modüler sayfa yapısı
+                </p>
+            </div>
+
+            <!-- Modül 1: Tema Değiştirici Buton (JS ile kontrol edilir) -->
+            <div class="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                    id="themeToggleBtn"
+                    type="button"
+                    aria-label="Temayı değiştir"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300 transition shadow-sm cursor-pointer"
+                >
+                    <span id="themeIcon" aria-hidden="true">🌙</span>
+                    <span id="themeLabel">Koyu Tema</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Mevcut Düzen: resim.png ve sahne.mp4 Alanları -->
+        <section aria-label="Medya Alanları" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- resim.png Alanı -->
+            <article class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-base font-bold">Görsel Alanı (resim.png)</h2>
+                    <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        resim.png
+                    </span>
+                </div>
+                <div class="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <img
+                        id="mainImage"
+                        src="resim.png"
+                        alt="Sahne görseli (resim.png)"
+                        class="w-full h-full object-cover"
+                        onerror="this.onerror=null; this.src='https://placehold.co/800x450/1e293b/f8fafc?text=resim.png';"
+                    />
+                </div>
+            </article>
+
+            <!-- sahne.mp4 Alanı -->
+            <article class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-base font-bold">Video Alanı (sahne.mp4)</h2>
+                    <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        sahne.mp4
+                    </span>
+                </div>
+                <div class="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-slate-700">
+                    <video
+                        id="mainVideo"
+                        src="sahne.mp4"
+                        controls
+                        playsinline
+                        preload="metadata"
+                        class="w-full h-full object-cover"
+                    >
+                        Tarayıcınız video etiketini desteklemiyor.
+                    </video>
+                </div>
+            </article>
+        </section>
+
+        <!-- Alt Etkileşim Modülleri: 3 Soruluk Kısa Bilgi Yarışması & Basit Tıklama Oyunu -->
+        <section aria-label="Etkileşim Modülleri" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Modül 2: 3 Soruluk Kısa Bilgi Yarışması -->
+            <article class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <h2 class="text-lg font-bold">3 Soruluk Kısa Bilgi Yarışması</h2>
+                        <span id="quizProgressBadge" class="text-xs font-bold px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                            Soru 1 / 3
+                        </span>
+                    </div>
+
+                    <!-- Aktif Soru Alanı -->
+                    <div id="quizQuestionContainer" class="space-y-3">
+                        <p id="quizQuestionText" class="text-sm sm:text-base font-semibold leading-relaxed">
+                            Soru yükleniyor...
+                        </p>
+                        <div id="quizOptionsList" class="grid grid-cols-1 gap-2.5">
+                            <!-- Şıklar JavaScript ile oluşturulur -->
+                        </div>
+                        <p id="quizFeedbackText" class="text-xs sm:text-sm font-medium min-h-[1.25rem] text-slate-600 dark:text-slate-400"></p>
+                    </div>
+
+                    <!-- Yarışma Sonuç Ekranı -->
+                    <div id="quizResultContainer" class="hidden text-center py-4 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-2">
+                        <p class="text-xs uppercase tracking-wider font-bold text-indigo-600 dark:text-indigo-400">
+                            Yarışma Tamamlandı
+                        </p>
+                        <p id="quizScoreSummary" class="text-2xl font-extrabold">
+                            0 / 3 Doğru
+                        </p>
+                        <p id="quizResultMessage" class="text-xs sm:text-sm text-slate-600 dark:text-slate-300"></p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <span id="quizLiveScore" class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        Mevcut Puan: 0
+                    </span>
+                    <button
+                        id="quizNextOrRestartBtn"
+                        type="button"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        Sonraki Soru
+                    </button>
+                </div>
+            </article>
+
+            <!-- Modül 3: Basit Tıklama Oyunu -->
+            <article class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <h2 class="text-lg font-bold">Basit Tıklama Oyunu</h2>
+                        <div class="flex items-center gap-2 text-xs font-bold">
+                            <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 tabular-nums">
+                                Skor: <span id="clickGameScore">0</span>
+                            </span>
+                            <span class="px-2.5 py-1 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300 tabular-nums">
+                                Süre: <span id="clickGameTimer">10.0s</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-4">
+                        10 saniye içinde kaçan yeşil hedefe bas! Küçülen butona dikkat et ve kırmızı "Tuzak!" butonlarına tıklamaktan kaçın.
+                    </p>
+
+                    <!-- Tıklama Hedef Alanı -->
+                    <div id="clickGameArena" class="relative h-52 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl p-3 overflow-hidden select-none">
+                        <button
+                            id="clickTargetBtn"
+                            type="button"
+                            class="click-target-btn absolute py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            style="left: 50%; top: 50%; transform: translate(-50%, -50%);"
+                            disabled
+                        >
+                            Tıkla!
+                        </button>
+                        <button
+                            id="clickTrapBtn"
+                            type="button"
+                            class="click-target-btn hidden absolute py-2 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                            style="left: 20%; top: 20%;"
+                        >
+                            Tuzak! -3
+                        </button>
+                        <p id="clickGameStatus" class="absolute bottom-2.5 inset-x-3 text-center text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 pointer-events-none">
+                            Başlamak için "Oyunu Başlat" butonuna bas.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <span class="text-xs font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
+                        En Yüksek Skor: <span id="clickGameBest">0</span>
+                    </span>
+                    <button
+                        id="clickStartBtn"
+                        type="button"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition cursor-pointer"
+                    >
+                        Oyunu Başlat
+                    </button>
+                </div>
+            </article>
+
+        </section>
+
+        <!-- Modül 4: Teachable Machine Görüntü Sınıflandırma -->
+        <section aria-label="Teachable Machine Görüntü Sınıflandırma" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <h2 class="text-lg font-bold">Teachable Machine Görüntü Sınıflandırma</h2>
+                    <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                        Bilgisayarından bir görsel seç, model tahmin yüzdelerini anında gör.
+                    </p>
+                </div>
+                <span id="tmModelStatus" class="self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                    Model Hazırlanıyor...
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <!-- Sol Kolon: Görsel Yükleme ve Önizleme -->
+                <div class="space-y-3">
+                    <label
+                        for="tmImageInput"
+                        class="flex flex-col items-center justify-center w-full px-4 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-violet-500 dark:hover:border-violet-400 bg-slate-50 dark:bg-slate-800/60 text-center cursor-pointer transition"
+                    >
+                        <span class="text-xs sm:text-sm font-semibold text-violet-600 dark:text-violet-400">
+                            Bilgisayardan Görsel Seç (PNG, JPG, WEBP)
+                        </span>
+                        <span id="tmFileName" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Henüz dosya seçilmedi
+                        </span>
+                        <input
+                            id="tmImageInput"
+                            type="file"
+                            accept="image/*"
+                            class="sr-only"
+                        />
+                    </label>
+
+                    <div class="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                        <img
+                            id="tmPreviewImage"
+                            alt="Yüklenen görsel önizlemesi"
+                            class="hidden w-full h-full object-contain"
+                        />
+                        <p id="tmPreviewPlaceholder" class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 px-4 text-center">
+                            Önizleme için bir görsel yükleyin.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Sağ Kolon: Sınıf Tahmin Yüzdeleri -->
+                <div class="space-y-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold">Tahmin Sonuçları</h3>
+                        <span id="tmTopPrediction" class="text-xs font-semibold text-violet-600 dark:text-violet-400">
+                            —
+                        </span>
+                    </div>
+
+                    <div id="tmPredictionsList" class="space-y-3">
+                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                            Sınıflandırma sonuçları burada görünecek.
+                        </p>
+                    </div>
+
+                    <div id="tmSummaryCard" class="hidden rounded-xl bg-white dark:bg-slate-900 border border-violet-200 dark:border-violet-800/70 p-3 space-y-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <span id="tmConfidenceBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                                Güven Seviyesi
+                            </span>
+                            <span id="tmConfidencePct" class="text-xs font-extrabold tabular-nums text-slate-700 dark:text-slate-200">
+                                %0.0
+                            </span>
+                        </div>
+                        <p id="tmSummaryText" class="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed"></p>
+                    </div>
+
+                    <p id="tmFeedbackMessage" class="text-xs text-slate-600 dark:text-slate-400 min-h-[1rem]"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Modül 5: Yorum Duygu Analizi Kutusu -->
+        <section aria-label="Yorum Duygu Analizi" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <h2 class="text-lg font-bold">Yorum Duygu Analizi</h2>
+                    <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                        Bir yorum yaz ve duygu durumunun olumlu mu olumsuz mu olduğunu analiz et.
+                    </p>
+                </div>
+                <span id="sentimentBadge" class="self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    Bekleniyor
+                </span>
+            </div>
+
+            <div class="space-y-3">
+                <label for="sentimentInput" class="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Yorum Metni
+                </label>
+                <textarea
+                    id="sentimentInput"
+                    rows="3"
+                    placeholder="Örn: Sahne ve görseller gerçekten çok güzel, harika olmuş!"
+                    class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                ></textarea>
+
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p id="sentimentResultText" class="text-sm font-semibold text-slate-600 dark:text-slate-400 min-h-[1.25rem]">
+                        Analiz sonucu burada yazacak.
+                    </p>
+                    <button
+                        id="sentimentAnalyzeBtn"
+                        type="button"
+                        class="self-start sm:self-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm cursor-pointer"
+                    >
+                        Analiz Et
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            "use strict";
+
+            // =========================================================================
+            // 1. MODÜL: TEMA DEĞİŞTİRİCİ BUTON
+            // =========================================================================
+            const THEME_STORAGE_KEY = "medya_sayfasi_tema_v1";
+
+            /**
+             * Seçilen temayı ('dark' veya 'light') belge köküne uygular ve buton metnini günceller.
+             * @param {"dark"|"light"} theme
+             */
+            function applyTheme(theme) {
+                const isDark = theme === "dark";
+                document.documentElement.classList.toggle("dark", isDark);
+
+                const iconEl = document.getElementById("themeIcon");
+                const labelEl = document.getElementById("themeLabel");
+                if (iconEl) iconEl.textContent = isDark ? "☀️" : "🌙";
+                if (labelEl) labelEl.textContent = isDark ? "Açık Tema" : "Koyu Tema";
+
+                try {
+                    localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light");
+                } catch (_) {
+                    // Depolama erişimi kısıtlı ortamlarda sessizce devam et
+                }
+            }
+
+            /**
+             * Kayıtlı tema veya sistem tercihini okuyarak tema değiştiriciyi başlatır.
+             */
+            function initThemeModule() {
+                const toggleBtn = document.getElementById("themeToggleBtn");
+                let initialTheme = "light";
+
+                try {
+                    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+                    if (saved === "dark" || saved === "light") {
+                        initialTheme = saved;
+                    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                        initialTheme = "dark";
+                    }
+                } catch (_) {
+                    // Sessizce geç
+                }
+
+                applyTheme(initialTheme);
+
+                if (toggleBtn) {
+                    toggleBtn.addEventListener("click", function () {
+                        const currentlyDark = document.documentElement.classList.contains("dark");
+                        applyTheme(currentlyDark ? "light" : "dark");
+                    });
+                }
+            }
+
+            // =========================================================================
+            // 2. MODÜL: 3 SORULUK KISA BİLGİ YARIŞMASI
+            // =========================================================================
+            const QUIZ_QUESTIONS = [
+                {
+                    question: "HTML belgesinde bir görseli sayfaya eklemek için hangi etiket kullanılır?",
+                    options: ["<picture-box>", "<img>", "<media>"],
+                    correctIndex: 1
+                },
+                {
+                    question: "Tarayıcıda sayfa içeriğine dinamik etkileşim eklemek için hangi dil kullanılır?",
+                    options: ["JavaScript", "SQL", "YAML"],
+                    correctIndex: 0
+                },
+                {
+                    question: "HTML5'te video oynatmak için kullanılan temel etiket hangisidir?",
+                    options: ["<film>", "<movie>", "<video>"],
+                    correctIndex: 2
+                }
+            ];
+
+            /**
+             * 3 soruluk bilgi yarışması durumunu ve arayüz olaylarını başlatır.
+             */
+            function initQuizModule() {
+                const badgeEl = document.getElementById("quizProgressBadge");
+                const qContainer = document.getElementById("quizQuestionContainer");
+                const qTextEl = document.getElementById("quizQuestionText");
+                const optsListEl = document.getElementById("quizOptionsList");
+                const feedbackEl = document.getElementById("quizFeedbackText");
+                const resultContainer = document.getElementById("quizResultContainer");
+                const scoreSummaryEl = document.getElementById("quizScoreSummary");
+                const resultMsgEl = document.getElementById("quizResultMessage");
+                const liveScoreEl = document.getElementById("quizLiveScore");
+                const actionBtn = document.getElementById("quizNextOrRestartBtn");
+
+                if (!qTextEl || !optsListEl || !actionBtn) return;
+
+                let currentIdx = 0;
+                let score = 0;
+                let answered = false;
+
+                function renderQuestion() {
+                    answered = false;
+                    const item = QUIZ_QUESTIONS[currentIdx];
+                    if (badgeEl) badgeEl.textContent = `Soru ${currentIdx + 1} / ${QUIZ_QUESTIONS.length}`;
+                    if (liveScoreEl) liveScoreEl.textContent = `Mevcut Puan: ${score}`;
+                    if (feedbackEl) feedbackEl.textContent = "";
+                    qTextEl.textContent = item.question;
+                    optsListEl.innerHTML = "";
+
+                    actionBtn.disabled = true;
+                    actionBtn.textContent = currentIdx === QUIZ_QUESTIONS.length - 1 ? "Sonucu Gör" : "Sonraki Soru";
+
+                    item.options.forEach(function (optText, optIdx) {
+                        const btn = document.createElement("button");
+                        btn.type = "button";
+                        btn.className =
+                            "w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition cursor-pointer";
+                        btn.textContent = optText;
+
+                        btn.addEventListener("click", function () {
+                            if (answered) return;
+                            answered = true;
+                            actionBtn.disabled = false;
+
+                            const allBtns = optsListEl.querySelectorAll("button");
+                            allBtns.forEach(function (b) {
+                                b.disabled = true;
+                            });
+
+                            if (optIdx === item.correctIndex) {
+                                score += 1;
+                                btn.className =
+                                    "w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+                                if (feedbackEl) feedbackEl.textContent = "Doğru cevap! +1 puan.";
+                            } else {
+                                btn.className =
+                                    "w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-rose-500 bg-rose-500/15 text-rose-700 dark:text-rose-300";
+                                if (allBtns[item.correctIndex]) {
+                                    allBtns[item.correctIndex].className =
+                                        "w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+                                }
+                                if (feedbackEl) feedbackEl.textContent = "Yanlış cevap.";
+                            }
+
+                            if (liveScoreEl) liveScoreEl.textContent = `Mevcut Puan: ${score}`;
+                        });
+
+                        optsListEl.appendChild(btn);
+                    });
+                }
+
+                function showResult() {
+                    if (qContainer) qContainer.classList.add("hidden");
+                    if (resultContainer) resultContainer.classList.remove("hidden");
+                    if (badgeEl) badgeEl.textContent = "Tamamlandı";
+                    if (scoreSummaryEl) scoreSummaryEl.textContent = `${score} / ${QUIZ_QUESTIONS.length} Doğru`;
+                    if (resultMsgEl) {
+                        resultMsgEl.textContent =
+                            score === QUIZ_QUESTIONS.length
+                                ? "Harika! Tüm soruları doğru yanıtladın."
+                                : score >= 1
+                                ? "Güzel deneme! Tekrar çözerek puanını artırabilirsin."
+                                : "Bir dahaki sefere daha yüksek puan alabilirsin.";
+                    }
+                    actionBtn.disabled = false;
+                    actionBtn.textContent = "Tekrar Çöz";
+                }
+
+                actionBtn.addEventListener("click", function () {
+                    if (actionBtn.textContent === "Tekrar Çöz") {
+                        currentIdx = 0;
+                        score = 0;
+                        if (resultContainer) resultContainer.classList.add("hidden");
+                        if (qContainer) qContainer.classList.remove("hidden");
+                        renderQuestion();
+                        return;
+                    }
+
+                    if (!answered) return;
+                    if (currentIdx < QUIZ_QUESTIONS.length - 1) {
+                        currentIdx += 1;
+                        renderQuestion();
+                    } else {
+                        showResult();
+                    }
+                });
+
+                renderQuestion();
+            }
+
+            // =========================================================================
+            // 3. MODÜL: BASİT TIKLAMA OYUNU (ZORLAŞTIRILMIŞ SÜRÜM)
+            // =========================================================================
+            const CLICK_GAME_DURATION_MS = 10000;
+            const CLICK_BEST_STORAGE_KEY = "basit_tiklama_oyunu_rekor_v1";
+
+            const clickDom = {
+                scoreEl: document.getElementById("clickGameScore"),
+                timerEl: document.getElementById("clickGameTimer"),
+                bestEl: document.getElementById("clickGameBest"),
+                arenaEl: document.getElementById("clickGameArena"),
+                targetBtn: document.getElementById("clickTargetBtn"),
+                trapBtn: document.getElementById("clickTrapBtn"),
+                statusEl: document.getElementById("clickGameStatus"),
+                startBtn: document.getElementById("clickStartBtn")
+            };
+
+            const clickState = {
+                isRunning: false,
+                score: 0,
+                bestScore: 0,
+                remainingMs: CLICK_GAME_DURATION_MS,
+                lastTick: 0,
+                intervalId: null,
+                evadeIntervalId: null
+            };
+
+            /**
+             * Kaydedilmiş en yüksek skoru güvenli şekilde okur.
+             * @returns {number}
+             */
+            function loadClickBest() {
+                try {
+                    const saved = parseInt(localStorage.getItem(CLICK_BEST_STORAGE_KEY), 10);
+                    return Number.isFinite(saved) && saved > 0 ? saved : 0;
+                } catch (_) {
+                    return 0;
+                }
+            }
+
+            /**
+             * Yeni rekor skoru kalıcı olarak kaydeder.
+             * @param {number} val
+             */
+            function saveClickBest(val) {
+                try {
+                    localStorage.setItem(CLICK_BEST_STORAGE_KEY, String(val));
+                } catch (_) {
+                    // Sessizce geç
+                }
+            }
+
+            /**
+             * Skor, süre ve rekor göstergelerini günceller.
+             */
+            function updateClickHud() {
+                if (!clickDom.scoreEl || !clickDom.timerEl || !clickDom.bestEl) return;
+                clickDom.scoreEl.textContent = String(clickState.score);
+                clickDom.bestEl.textContent = String(clickState.bestScore);
+                clickDom.timerEl.textContent = `${Math.max(0, clickState.remainingMs / 1000).toFixed(1)}s`;
+            }
+
+            /**
+             * Oyun alanı sınırları içinde rastgele konum üretir.
+             * @param {number} btnWidth
+             * @param {number} btnHeight
+             * @param {number} [reservedTop=0]
+             * @param {number} [reservedBottom=34]
+             */
+            function getRandomPositionInArena(btnWidth, btnHeight, reservedTop = 0, reservedBottom = 34) {
+                const arenaRect = clickDom.arenaEl.getBoundingClientRect();
+                const usableWidth = Math.max(20, arenaRect.width - btnWidth - 16);
+                const usableHeight = Math.max(20, arenaRect.height - btnHeight - reservedTop - reservedBottom - 8);
+
+                const left = 8 + Math.random() * usableWidth;
+                const top = reservedTop + 6 + Math.random() * usableHeight;
+                return { left, top };
+            }
+
+            /**
+             * Oyun durumunun aktif olup olmadığını kontrol eder.
+             * @returns {boolean}
+             */
+            function stateIsRunningSafe() {
+                return Boolean(clickState.isRunning && clickDom.arenaEl && clickDom.targetBtn && clickDom.trapBtn);
+            }
+
+            /**
+             * Hedef butonu ve isteğe bağlı tuzak butonunu yeni koordinatlara yerleştirir.
+             */
+            function positionClickTargets() {
+                if (!stateIsRunningSafe()) return;
+
+                // Skor arttıkça hedef buton küçülür ve daha sık kaçar
+                const shrinkFactor = Math.min(0.45, Math.max(0, clickState.score) * 0.025);
+                const targetWidth = Math.max(58, Math.round(108 * (1 - shrinkFactor)));
+                const targetHeight = Math.max(30, Math.round(40 * (1 - shrinkFactor * 0.7)));
+
+                clickDom.targetBtn.style.width = `${targetWidth}px`;
+                clickDom.targetBtn.style.height = `${targetHeight}px`;
+                clickDom.targetBtn.style.transform = "none";
+
+                const targetPos = getRandomPositionInArena(targetWidth, targetHeight);
+                clickDom.targetBtn.style.left = `${targetPos.left}px`;
+                clickDom.targetBtn.style.top = `${targetPos.top}px`;
+
+                // Puan 2 ve üzerindeyse %65 ihtimalle kırmızı tuzak butonu belirir
+                const showTrap = clickState.score >= 2 && Math.random() < 0.65;
+                if (showTrap) {
+                    clickDom.trapBtn.classList.remove("hidden");
+                    const trapWidth = 86;
+                    const trapHeight = 32;
+                    let trapPos = getRandomPositionInArena(trapWidth, trapHeight);
+
+                    // Tuzak butonunun hedefle doğrudan üst üste binmesini azalt
+                    if (
+                        Math.abs(trapPos.left - targetPos.left) < targetWidth &&
+                        Math.abs(trapPos.top - targetPos.top) < targetHeight
+                    ) {
+                        trapPos = getRandomPositionInArena(trapWidth, trapHeight);
+                    }
+
+                    clickDom.trapBtn.style.left = `${trapPos.left}px`;
+                    clickDom.trapBtn.style.top = `${trapPos.top}px`;
+                } else {
+                    clickDom.trapBtn.classList.add("hidden");
+                }
+            }
+
+            /**
+             * Skora göre hızlanan kaçış döngüsünü planlar.
+             */
+            function scheduleEvadeLoop() {
+                if (clickState.evadeIntervalId !== null) {
+                    clearInterval(clickState.evadeIntervalId);
+                }
+
+                const evadeDelayMs = Math.max(360, 820 - Math.max(0, clickState.score) * 28);
+                clickState.evadeIntervalId = setInterval(function () {
+                    if (!clickState.isRunning) return;
+                    positionClickTargets();
+                }, evadeDelayMs);
+            }
+
+            /**
+             * Aktif zamanlayıcıları temizler ve oyunu sonlandırır.
+             */
+            function stopClickGame() {
+                clickState.isRunning = false;
+
+                if (clickState.intervalId !== null) {
+                    clearInterval(clickState.intervalId);
+                    clickState.intervalId = null;
+                }
+                if (clickState.evadeIntervalId !== null) {
+                    clearInterval(clickState.evadeIntervalId);
+                    clickState.evadeIntervalId = null;
+                }
+
+                clickState.remainingMs = 0;
+                updateClickHud();
+
+                if (clickDom.targetBtn) clickDom.targetBtn.disabled = true;
+                if (clickDom.trapBtn) clickDom.trapBtn.classList.add("hidden");
+                if (clickDom.startBtn) {
+                    clickDom.startBtn.disabled = false;
+                    clickDom.startBtn.textContent = "Tekrar Oyna";
+                }
+
+                if (clickState.score > clickState.bestScore) {
+                    clickState.bestScore = clickState.score;
+                    saveClickBest(clickState.bestScore);
+                    updateClickHud();
+                    if (clickDom.statusEl) {
+                        clickDom.statusEl.textContent = `Yeni rekor! Süre doldu — Skorun: ${clickState.score}`;
+                    }
+                } else if (clickDom.statusEl) {
+                    clickDom.statusEl.textContent = `Süre doldu! Toplam skorun: ${clickState.score}`;
+                }
+            }
+
+            /**
+             * Yeni bir 10 saniyelik tıklama turu başlatır.
+             */
+            function startClickGame() {
+                if (!clickDom.targetBtn || !clickDom.startBtn) return;
+
+                if (clickState.intervalId !== null) clearInterval(clickState.intervalId);
+                if (clickState.evadeIntervalId !== null) clearInterval(clickState.evadeIntervalId);
+
+                clickState.isRunning = true;
+                clickState.score = 0;
+                clickState.remainingMs = CLICK_GAME_DURATION_MS;
+                clickState.lastTick = performance.now();
+
+                clickDom.targetBtn.disabled = false;
+                clickDom.trapBtn.classList.add("hidden");
+                clickDom.startBtn.disabled = true;
+                clickDom.startBtn.textContent = "Oyun Sürüyor...";
+
+                if (clickDom.statusEl) {
+                    clickDom.statusEl.textContent = "Hedefi yakala! Puan arttıkça hedef küçülür ve hızlanır.";
+                }
+
+                updateClickHud();
+                positionClickTargets();
+                scheduleEvadeLoop();
+
+                clickState.intervalId = setInterval(function () {
+                    if (!clickState.isRunning) return;
+                    const now = performance.now();
+                    const delta = now - clickState.lastTick;
+                    clickState.lastTick = now;
+                    clickState.remainingMs -= delta;
+
+                    if (clickState.remainingMs <= 0) {
+                        stopClickGame();
+                    } else {
+                        updateClickHud();
+                    }
+                }, 50);
+            }
+
+            /**
+             * Tıklama oyunu olay dinleyicilerini ve başlangıç durumunu kurar.
+             */
+            function initClickGameModule() {
+                if (!clickDom.targetBtn || !clickDom.startBtn || !clickDom.trapBtn) return;
+
+                clickState.bestScore = loadClickBest();
+                updateClickHud();
+
+                clickDom.startBtn.addEventListener("click", startClickGame);
+
+                clickDom.targetBtn.addEventListener("click", function () {
+                    if (!clickState.isRunning) return;
+                    clickState.score += 1;
+                    if (clickState.score > clickState.bestScore) {
+                        clickState.bestScore = clickState.score;
+                        saveClickBest(clickState.bestScore);
+                    }
+                    updateClickHud();
+                    positionClickTargets();
+                    scheduleEvadeLoop();
+                });
+
+                clickDom.trapBtn.addEventListener("click", function () {
+                    if (!clickState.isRunning) return;
+                    clickState.score = Math.max(0, clickState.score - 3);
+                    updateClickHud();
+                    if (clickDom.statusEl) {
+                        clickDom.statusEl.textContent = "Tuzağa bastın! -3 puan cezası.";
+                    }
+                    positionClickTargets();
+                    scheduleEvadeLoop();
+                });
+            }
+
+            // =========================================================================
+            // 4. MODÜL: TEACHABLE MACHINE GÖRÜNTÜ SINIFLANDIRMA
+            // =========================================================================
+            // Kullanıcının kendi Teachable Machine Image model URL'sini buraya tanımlayabilirsiniz.
+            // Boş bırakıldığında veya ağ erişimi olmadığında tarayıcı içi güvenli yedek sınıflandırıcı devreye girer.
+            const TM_MODEL_URL = "";
+
+            const tmDom = {
+                statusEl: document.getElementById("tmModelStatus"),
+                inputEl: document.getElementById("tmImageInput"),
+                fileNameEl: document.getElementById("tmFileName"),
+                previewImgEl: document.getElementById("tmPreviewImage"),
+                placeholderEl: document.getElementById("tmPreviewPlaceholder"),
+                topPredEl: document.getElementById("tmTopPrediction"),
+                predsListEl: document.getElementById("tmPredictionsList"),
+                summaryCardEl: document.getElementById("tmSummaryCard"),
+                confidenceBadgeEl: document.getElementById("tmConfidenceBadge"),
+                confidencePctEl: document.getElementById("tmConfidencePct"),
+                summaryTextEl: document.getElementById("tmSummaryText"),
+                feedbackEl: document.getElementById("tmFeedbackMessage")
+            };
+
+            const tmState = {
+                model: null,
+                maxPredictions: 0,
+                usingFallback: false,
+                objectUrl: null
+            };
+
+            /**
+             * Güven yüzdesine göre Türkçe etiket ve açıklama üretir.
+             * @param {number} probability
+             * @returns {{label: string, badgeClass: string, note: string}}
+             */
+            function evaluateConfidence(probability) {
+                const pct = probability * 100;
+                if (pct >= 80) {
+                    return {
+                        label: "Yüksek Güven",
+                        badgeClass:
+                            "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+                        note: "Model bu sınıf için güçlü ve belirgin görsel özellikler saptadı."
+                    };
+                }
+                if (pct >= 50) {
+                    return {
+                        label: "Orta Güven",
+                        badgeClass:
+                            "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+                        note: "Kabul edilebilir eşleşme; daha net ışık veya yakın kadraj ile güven artırılabilir."
+                    };
+                }
+                return {
+                    label: "Düşük Güven",
+                    badgeClass:
+                        "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+                    note: "Tahmin belirsiz; görsel eğitim sınıflarından farklı veya karmaşık olabilir."
+                };
+            }
+
+            /**
+             * Görsel piksellerinden deterministik ve anlamlı sınıflandırma yüzdeleri hesaplar.
+             * @param {HTMLImageElement} imgEl
+             * @returns {Array<{className: string, probability: number}>}
+             */
+            function runFallbackImageAnalysis(imgEl) {
+                const canvas = document.createElement("canvas");
+                const size = 64;
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d");
+
+                if (!ctx) {
+                    return [
+                        { className: "Dengeli Sahne", probability: 0.5 },
+                        { className: "Canlı / Renkli", probability: 0.3 },
+                        { className: "Koyu / Düşük Işık", probability: 0.2 }
+                    ];
+                }
+
+                ctx.drawImage(imgEl, 0, 0, size, size);
+                const data = ctx.getImageData(0, 0, size, size).data;
+
+                let sumR = 0;
+                let sumG = 0;
+                let sumB = 0;
+                let sumSat = 0;
+                let pixelCount = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const maxC = Math.max(r, g, b);
+                    const minC = Math.min(r, g, b);
+                    const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+
+                    sumR += r;
+                    sumG += g;
+                    sumB += b;
+                    sumSat += sat;
+                    pixelCount += 1;
+                }
+
+                const avgR = sumR / pixelCount;
+                const avgG = sumG / pixelCount;
+                const avgB = sumB / pixelCount;
+                const avgSat = sumSat / pixelCount;
+                const brightness = (avgR + avgG + avgB) / (3 * 255);
+
+                const warmScore = Math.max(0.05, Math.min(0.9, (avgR - avgB + 128) / 256));
+                const coolScore = Math.max(0.05, Math.min(0.9, (avgB - avgR + 128) / 256));
+                const vibrantScore = Math.max(0.05, Math.min(0.9, avgSat * 1.15 + (brightness > 0.35 ? 0.15 : 0)));
+                const naturalScore = Math.max(0.05, Math.min(0.9, (avgG / 255) * 0.7 + (1 - Math.abs(brightness - 0.5)) * 0.3));
+
+                const raw = [
+                    { className: "Sıcak Tonlu Görsel", probability: warmScore },
+                    { className: "Soğuk / Mavi Tonlu", probability: coolScore },
+                    { className: "Canlı / Yüksek Doygunluk", probability: vibrantScore },
+                    { className: "Doğal / Dengeli Işık", probability: naturalScore }
+                ];
+
+                const total = raw.reduce(function (acc, item) {
+                    return acc + item.probability;
+                }, 0);
+
+                return raw
+                    .map(function (item) {
+                        return {
+                            className: item.className,
+                            probability: item.probability / total
+                        };
+                    })
+                    .sort(function (a, b) {
+                        return b.probability - a.probability;
+                    });
+            }
+
+            /**
+             * Tahmin dizisini yüzdelik çubuklar, en yüksek sınıf ve özet kart ile ekrana basar.
+             * @param {Array<{className: string, probability: number}>} predictions
+             */
+            function renderTmPredictions(predictions) {
+                if (!tmDom.predsListEl || !tmDom.topPredEl) return;
+
+                if (!Array.isArray(predictions) || predictions.length === 0) {
+                    tmDom.predsListEl.innerHTML =
+                        '<p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Tahmin üretilemedi.</p>';
+                    tmDom.topPredEl.textContent = "—";
+                    if (tmDom.summaryCardEl) tmDom.summaryCardEl.classList.add("hidden");
+                    return;
+                }
+
+                const sorted = predictions.slice().sort(function (a, b) {
+                    return b.probability - a.probability;
+                });
+
+                const top = sorted[0];
+                const topPct = (top.probability * 100).toFixed(1);
+                tmDom.topPredEl.textContent = `En Yüksek: ${top.className} (%${topPct})`;
+
+                tmDom.predsListEl.innerHTML = "";
+                sorted.forEach(function (item) {
+                    const pctNum = Math.max(0, Math.min(100, item.probability * 100));
+                    const pctText = pctNum.toFixed(1);
+
+                    const row = document.createElement("div");
+                    row.className = "space-y-1";
+
+                    const headerRow = document.createElement("div");
+                    headerRow.className = "flex items-center justify-between text-xs font-semibold";
+
+                    const nameSpan = document.createElement("span");
+                    nameSpan.className = "text-slate-800 dark:text-slate-200 truncate pr-2";
+                    nameSpan.textContent = item.className;
+
+                    const valSpan = document.createElement("span");
+                    valSpan.className = "text-violet-700 dark:text-violet-300 tabular-nums";
+                    valSpan.textContent = `%${pctText}`;
+
+                    headerRow.appendChild(nameSpan);
+                    headerRow.appendChild(valSpan);
+
+                    const track = document.createElement("div");
+                    track.className = "w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden";
+
+                    const fill = document.createElement("div");
+                    fill.className = "h-full rounded-full bg-violet-600 dark:bg-violet-400 transition-all duration-300";
+                    fill.style.width = `${pctNum}%`;
+
+                    track.appendChild(fill);
+                    row.appendChild(headerRow);
+                    row.appendChild(track);
+                    tmDom.predsListEl.appendChild(row);
+                });
+
+                if (tmDom.summaryCardEl && tmDom.confidenceBadgeEl && tmDom.confidencePctEl && tmDom.summaryTextEl) {
+                    const conf = evaluateConfidence(top.probability);
+                    tmDom.summaryCardEl.classList.remove("hidden");
+                    tmDom.confidenceBadgeEl.className = conf.badgeClass;
+                    tmDom.confidenceBadgeEl.textContent = conf.label;
+                    tmDom.confidencePctEl.textContent = `%${topPct}`;
+                    tmDom.summaryTextEl.textContent = `"${top.className}" sınıfı %${topPct} olasılıkla öne çıkıyor. ${conf.note}`;
+                }
+            }
+
+            /**
+             * Yüklenen görseli Teachable Machine modeli veya yedek analiz ile sınıflandırır.
+             * @param {HTMLImageElement} imgEl
+             */
+            async function classifyUploadedImage(imgEl) {
+                if (!imgEl || !imgEl.complete || imgEl.naturalWidth === 0) return;
+
+                if (tmDom.feedbackEl) {
+                    tmDom.feedbackEl.textContent = "Görsel analiz ediliyor...";
+                }
+
+                try {
+                    if (tmState.model && !tmState.usingFallback && typeof tmState.model.predict === "function") {
+                        const prediction = await tmState.model.predict(imgEl);
+                        renderTmPredictions(prediction);
+                        if (tmDom.feedbackEl) {
+                            tmDom.feedbackEl.textContent = "Teachable Machine modeli ile sınıflandırıldı.";
+                        }
+                        return;
+                    }
+
+                    const fallbackPreds = runFallbackImageAnalysis(imgEl);
+                    renderTmPredictions(fallbackPreds);
+                    if (tmDom.feedbackEl) {
+                        tmDom.feedbackEl.textContent =
+                            "Yerel piksel analiz motoru kullanıldı (özel model URL'si tanımlandığında doğrudan model çalışır).";
+                    }
+                } catch (err) {
+                    const fallbackPreds = runFallbackImageAnalysis(imgEl);
+                    renderTmPredictions(fallbackPreds);
+                    if (tmDom.feedbackEl) {
+                        tmDom.feedbackEl.textContent = "Model tahmininde hata oluştu; yedek analiz gösteriliyor.";
+                    }
+                }
+            }
+
+            /**
+             * Teachable Machine modelini yüklemeyi dener; başarısız olursa yedek moda geçer.
+             */
+            async function loadTmModel() {
+                if (!tmDom.statusEl) return;
+
+                const cleanUrl = typeof TM_MODEL_URL === "string" ? TM_MODEL_URL.trim() : "";
+                if (!cleanUrl) {
+                    tmState.usingFallback = true;
+                    tmDom.statusEl.textContent = "Hazır (Yerel Analiz Modu)";
+                    return;
+                }
+
+                try {
+                    if (
+                        typeof window.tmImage === "undefined" ||
+                        typeof window.tmImage.load !== "function"
+                    ) {
+                        throw new Error("tmImage kütüphanesi bulunamadı.");
+                    }
+
+                    const baseUrl = cleanUrl.endsWith("/") ? cleanUrl : `${cleanUrl}/`;
+                    const modelURL = `${baseUrl}model.json`;
+                    const metadataURL = `${baseUrl}metadata.json`;
+
+                    const loadedModel = await window.tmImage.load(modelURL, metadataURL);
+                    tmState.model = loadedModel;
+                    tmState.maxPredictions = loadedModel.getTotalClasses();
+                    tmState.usingFallback = false;
+                    tmDom.statusEl.textContent = `Model Hazır (${tmState.maxPredictions} Sınıf)`;
+                } catch (_) {
+                    tmState.usingFallback = true;
+                    tmDom.statusEl.textContent = "Hazır (Yerel Analiz Modu)";
+                }
+            }
+
+            /**
+             * Görsel seçme ve önizleme olaylarını başlatır.
+             */
+            function initTeachableMachineModule() {
+                if (!tmDom.inputEl || !tmDom.previewImgEl) return;
+
+                loadTmModel();
+
+                tmDom.previewImgEl.addEventListener("load", function () {
+                    classifyUploadedImage(tmDom.previewImgEl);
+                });
+
+                tmDom.inputEl.addEventListener("change", function (event) {
+                    const file = event.target && event.target.files ? event.target.files[0] : null;
+                    if (!file) return;
+
+                    if (tmDom.fileNameEl) {
+                        tmDom.fileNameEl.textContent = file.name;
+                    }
+
+                    if (!file.type || !file.type.startsWith("image/")) {
+                        if (tmDom.feedbackEl) {
+                            tmDom.feedbackEl.textContent = "Lütfen geçerli bir görsel dosyası seçin.";
+                        }
+                        return;
+                    }
+
+                    if (tmState.objectUrl) {
+                        try {
+                            URL.revokeObjectURL(tmState.objectUrl);
+                        } catch (_) {
+                            // Sessizce geç
+                        }
+                    }
+
+                    const nextUrl = URL.createObjectURL(file);
+                    tmState.objectUrl = nextUrl;
+
+                    if (tmDom.placeholderEl) {
+                        tmDom.placeholderEl.classList.add("hidden");
+                    }
+                    tmDom.previewImgEl.classList.remove("hidden");
+                    tmDom.previewImgEl.src = nextUrl;
+                });
+            }
+
+            // =========================================================================
+            // 5. MODÜL: YORUM DUYGU ANALİZİ
+            // =========================================================================
+            const POSITIVE_WORDS = [
+                "güzel", "harika", "mükemmel", "süper", "muhteşem", "başarılı",
+                "iyi", "sevdim", "beğendim", "keyifli", "efsane", "kusursuz",
+                "hoş", "faydalı", "tatmin", "şahane", "mutlu", "tebrik"
+            ];
+
+            const NEGATIVE_WORDS = [
+                "kötü", "berbat", "rezalet", "sıkıcı", "beğenmedim", "sevmedim",
+                "zayıf", "hatalı", "bozuk", "yavaş", "pahalı", "hayal kırıklığı",
+                "sorun", "eksik", "çöp", "fena", "üzücü", "sinir"
+            ];
+
+            const NEGATION_WORDS = ["değil", "hiç", "pek", "asla", "yok"];
+
+            /**
+             * Verilen Türkçe yorum metninin duygu durumunu ('Olumlu' veya 'Olumsuz') analiz eder.
+             * @param {string} text
+             * @returns {"Olumlu" | "Olumsuz"}
+             */
+            function analyzeCommentSentiment(text) {
+                const normalized = text
+                    .toLocaleLowerCase("tr-TR")
+                    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+                    .split(/\s+/)
+                    .filter(Boolean);
+
+                let score = 0;
+
+                for (let i = 0; i < normalized.length; i++) {
+                    const token = normalized[i];
+                    const prevToken = i > 0 ? normalized[i - 1] : "";
+                    const nextToken = i < normalized.length - 1 ? normalized[i + 1] : "";
+                    const hasNegation = NEGATION_WORDS.includes(prevToken) || NEGATION_WORDS.includes(nextToken);
+
+                    if (POSITIVE_WORDS.includes(token)) {
+                        score += hasNegation ? -1 : 1;
+                    } else if (NEGATIVE_WORDS.includes(token)) {
+                        score += hasNegation ? 1 : -1;
+                    }
+                }
+
+                return score >= 0 ? "Olumlu" : "Olumsuz";
+            }
+
+            /**
+             * Yorum duygu analizi arayüzünü ve 'Analiz Et' butonu olayını başlatır.
+             */
+            function initSentimentModule() {
+                const inputEl = document.getElementById("sentimentInput");
+                const analyzeBtn = document.getElementById("sentimentAnalyzeBtn");
+                const resultTextEl = document.getElementById("sentimentResultText");
+                const badgeEl = document.getElementById("sentimentBadge");
+
+                if (!inputEl || !analyzeBtn || !resultTextEl || !badgeEl) return;
+
+                analyzeBtn.addEventListener("click", function () {
+                    const comment = inputEl.value.trim();
+
+                    if (!comment) {
+                        badgeEl.className =
+                            "self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300";
+                        badgeEl.textContent = "Uyarı";
+                        resultTextEl.className = "text-sm font-semibold text-amber-600 dark:text-amber-400 min-h-[1.25rem]";
+                        resultTextEl.textContent = "Lütfen analiz etmek için bir yorum yazın.";
+                        return;
+                    }
+
+                    const sentiment = analyzeCommentSentiment(comment);
+                    const isPositive = sentiment === "Olumlu";
+
+                    if (isPositive) {
+                        badgeEl.className =
+                            "self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300";
+                        badgeEl.textContent = "Olumlu";
+                        resultTextEl.className =
+                            "text-sm font-bold text-emerald-700 dark:text-emerald-300 min-h-[1.25rem]";
+                        resultTextEl.textContent = "Sonuç: Olumlu yorum";
+                    } else {
+                        badgeEl.className =
+                            "self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300";
+                        badgeEl.textContent = "Olumsuz";
+                        resultTextEl.className =
+                            "text-sm font-bold text-rose-700 dark:text-rose-300 min-h-[1.25rem]";
+                        resultTextEl.textContent = "Sonuç: Olumsuz yorum";
+                    }
+                });
+            }
+
+            // =========================================================================
+            // SAYFA BAŞLATMA
+            // =========================================================================
+            // 5. MODÜL: YORUM DUYGU ANALİZİ (TÜRKÇE + İNGİLİZCE)
+            // =========================================================================
+            const POSITIVE_WORDS_TR = [
+                "güzel", "harika", "mükemmel", "süper", "muhteşem", "başarılı",
+                "iyi", "sevdim", "beğendim", "keyifli", "efsane", "kusursuz",
+                "hoş", "faydalı", "tatmin", "şahane", "mutlu", "tebrik",
+                "geçtim", "kazandım", "kaliteli", "akıcı", "etkileyici", "sevindirici"
+            ];
+
+            const NEGATIVE_WORDS_TR = [
+                "kötü", "berbat", "rezalet", "sıkıcı", "beğenmedim", "sevmedim",
+                "zayıf", "hatalı", "bozuk", "yavaş", "pahalı", "sorun",
+                "eksik", "çöp", "fena", "üzücü", "sinir", "kaldım",
+                "başarısız", "yetersiz", "vasat", "bıktım", "kızgın", "kırgın",
+                "pişman", "saçma", "anlamsız", "iğrenç", "felaket", "mağdur"
+            ];
+
+            const NEGATIVE_PHRASES_TR = [
+                "sınıfta kaldım", "dersten kaldım", "sınavdan kaldım",
+                "hayal kırıklığı", "işe yaramaz", "işe yaramıyor",
+                "hiç beğenmedim", "hiç sevmedim", "hiç güzel değil",
+                "hiç iyi değil", "para tuzağı", "zaman kaybı",
+                "tavsiye etmem", "önermiyorum", "bir işe yaramaz"
+            ];
+
+            const POSITIVE_PHRASES_TR = [
+                "çok güzel", "çok iyi", "çok beğendim", "çok sevdim",
+                "sınıfta geçtim", "dersten geçtim", "tavsiye ederim", "kesinlikle öneririm"
+            ];
+
+            const NEGATION_WORDS_TR = ["değil", "hiç", "pek", "asla", "yok", "olmadan", "eksik"];
+
+            const POSITIVE_WORDS_EN = [
+                "good", "great", "awesome", "amazing", "excellent", "fantastic",
+                "love", "loved", "like", "liked", "nice", "wonderful",
+                "helpful", "brilliant", "superb", "best", "happy", "passed",
+                "enjoyed", "impressive", "solid", "smooth", "worth"
+            ];
+
+            const NEGATIVE_WORDS_EN = [
+                "bad", "terrible", "awful", "horrible", "boring", "disliked",
+                "hated", "hate", "weak", "broken", "slow", "expensive",
+                "problem", "issue", "trash", "garbage", "poor", "sad",
+                "failed", "fail", "useless", "annoying", "frustrating",
+                "mediocre", "regret", "disappointed", "disappointing", "worst"
+            ];
+
+            const NEGATIVE_PHRASES_EN = [
+                "failed the class", "failed the exam", "not good", "not great",
+                "not helpful", "waste of time", "waste of money", "do not recommend",
+                "don't recommend", "let down", "falling asleep"
+            ];
+
+            const POSITIVE_PHRASES_EN = [
+                "so good", "very good", "really good", "love it", "loved it",
+                "highly recommend", "passed the class", "passed the exam"
+            ];
+
+            const NEGATION_WORDS_EN = ["not", "no", "never", "hardly", "barely", "without"];
+
+            /**
+             * Metindeki belirli kelime öbeklerini sayar ve eşleşen kısımları skorlamada çift sayılmaması için temizler.
+             * @param {string} normalizedText
+             * @param {string[]} phrases
+             * @param {number} weight
+             * @returns {{score: number, cleanedText: string}}
+             */
+            function applyPhraseMatches(normalizedText, phrases, weight) {
+                let score = 0;
+                let cleanedText = ` ${normalizedText} `;
+
+                for (let i = 0; i < phrases.length; i++) {
+                    const phrase = phrases[i];
+                    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                    const regex = new RegExp(`(?<!\\p{L})${escaped}(?!\\p{L})`, "giu");
+                    const matches = cleanedText.match(regex);
+                    if (matches && matches.length > 0) {
+                        score += matches.length * weight;
+                        cleanedText = cleanedText.replace(regex, " ");
+                    }
+                }
+
+                return {
+                    score,
+                    cleanedText: cleanedText.replace(/\s+/g, " ").trim()
+                };
+            }
+
+            /**
+             * Verilen Türkçe veya İngilizce yorum metninin duygu durumunu ('Olumlu' veya 'Olumsuz') analiz eder.
+             * Olumsuz veya karışık ifadelerde olumsuz sinyalleri önceliklendirir.
+             * @param {string} text
+             * @returns {"Olumlu" | "Olumsuz"}
+             */
+            function analyzeCommentSentiment(text) {
+                const baseNormalized = text
+                    .toLocaleLowerCase("tr-TR")
+                    .replace(/[^\p{L}\p{N}\s']/gu, " ")
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                let score = 0;
+
+                // 1. Önce çok kelimeli Türkçe ve İngilizce kalıpları değerlendir
+                const trNegPhraseRes = applyPhraseMatches(baseNormalized, NEGATIVE_PHRASES_TR, -3);
+                score += trNegPhraseRes.score;
+
+                const trPosPhraseRes = applyPhraseMatches(trNegPhraseRes.cleanedText, POSITIVE_PHRASES_TR, 2);
+                score += trPosPhraseRes.score;
+
+                const enNegPhraseRes = applyPhraseMatches(trPosPhraseRes.cleanedText, NEGATIVE_PHRASES_EN, -3);
+                score += enNegPhraseRes.score;
+
+                const enPosPhraseRes = applyPhraseMatches(enNegPhraseRes.cleanedText, POSITIVE_PHRASES_EN, 2);
+                score += enPosPhraseRes.score;
+
+                // 2. Kalan kelimeleri tekil ve olumsuzluk bağlamıyla değerlendir
+                const tokens = enPosPhraseRes.cleanedText.split(/\s+/).filter(Boolean);
+                let negativeHits = trNegPhraseRes.score < 0 ? 1 : 0;
+                let positiveHits = trPosPhraseRes.score > 0 || enPosPhraseRes.score > 0 ? 1 : 0;
+
+                for (let i = 0; i < tokens.length; i++) {
+                    const token = tokens[i];
+                    const prevToken = i > 0 ? tokens[i - 1] : "";
+                    const prevTwoToken = i > 1 ? tokens[i - 2] : "";
+                    const nextToken = i < tokens.length - 1 ? tokens[i + 1] : "";
+
+                    const hasTrNegation =
+                        NEGATION_WORDS_TR.includes(prevToken) ||
+                        NEGATION_WORDS_TR.includes(prevTwoToken) ||
+                        NEGATION_WORDS_TR.includes(nextToken);
+
+                    const hasEnNegation =
+                        NEGATION_WORDS_EN.includes(prevToken) ||
+                        NEGATION_WORDS_EN.includes(prevTwoToken) ||
+                        NEGATION_WORDS_EN.includes(nextToken);
+
+                    if (POSITIVE_WORDS_TR.includes(token)) {
+                        if (hasTrNegation) {
+                            score -= 2;
+                            negativeHits += 1;
+                        } else {
+                            score += 1;
+                            positiveHits += 1;
+                        }
+                    } else if (NEGATIVE_WORDS_TR.includes(token)) {
+                        if (hasTrNegation) {
+                            score += 1;
+                            positiveHits += 1;
+                        } else {
+                            score -= 2;
+                            negativeHits += 1;
+                        }
+                    } else if (POSITIVE_WORDS_EN.includes(token)) {
+                        if (hasEnNegation) {
+                            score -= 2;
+                            negativeHits += 1;
+                        } else {
+                            score += 1;
+                            positiveHits += 1;
+                        }
+                    } else if (NEGATIVE_WORDS_EN.includes(token)) {
+                        if (hasEnNegation) {
+                            score += 1;
+                            positiveHits += 1;
+                        } else {
+                            score -= 2;
+                            negativeHits += 1;
+                        }
+                    }
+                }
+
+                // Karışık ifadelerde olumsuz bir bulgu varsa net olumlu üstünlüğü yoksa 'Olumsuz' döndür
+                if (negativeHits > 0 && score <= 0) {
+                    return "Olumsuz";
+                }
+
+                if (score < 0) {
+                    return "Olumsuz";
+                }
+
+                if (positiveHits > 0 && score > 0) {
+                    return "Olumlu";
+                }
+
+                return score >= 0 && negativeHits === 0 ? "Olumlu" : "Olumsuz";
+            }
+
+            /**
+             * Yorum duygu analizi arayüzünü ve 'Analiz Et' butonu olayını başlatır.
+             */
+            function initSentimentModule() {
+                const inputEl = document.getElementById("sentimentInput");
+                const analyzeBtn = document.getElementById("sentimentAnalyzeBtn");
+                const resultTextEl = document.getElementById("sentimentResultText");
+                const badgeEl = document.getElementById("sentimentBadge");
+
+                if (!inputEl || !analyzeBtn || !resultTextEl || !badgeEl) return;
+
+                analyzeBtn.addEventListener("click", function () {
+                    const comment = inputEl.value.trim();
+
+                    if (!comment) {
+                        badgeEl.className =
+                            "self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300";
+                        badgeEl.textContent = "Uyarı";
+                        resultTextEl.className = "text-sm font-semibold text-amber-600 dark:text-amber-400 min-h-[1.25rem]";
+                        resultTextEl.textContent = "Lütfen analiz etmek için bir yorum yazın.";
+                        return;
+                    }
+
+                    const sentiment = analyzeCommentSentiment(comment);
+                    const isPositive = sentiment === "Olumlu";
+
+                    if (isPositive) {
+                        badgeEl.className =
+                            "self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300";
+                        badgeEl.textContent = "Olumlu";
+                        resultTextEl.className =
+                            "text-sm font-bold text-emerald-700 dark:text-emerald-300 min-h-[1.25rem]";
+                        resultTextEl.textContent = "Sonuç: Olumlu yorum";
+                    } else {
+                        badgeEl.className =
+                            "self-start sm:self-auto text-xs font-bold px-3 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300";
+                        badgeEl.textContent = "Olumsuz";
+                        resultTextEl.className =
+                            "text-sm font-bold text-rose-700 dark:text-rose-300 min-h-[1.25rem]";
+                        resultTextEl.textContent = "Sonuç: Olumsuz yorum";
+                    }
+                });
+            }
+
+            // =========================================================================
+            // SAYFA BAŞLATMA
+            // =========================================================================
+            initThemeModule();
+            initQuizModule();
+            initClickGameModule();
+            initTeachableMachineModule();
+            initSentimentModule();
+        })();
+    </script>
+</body>
+</html>
